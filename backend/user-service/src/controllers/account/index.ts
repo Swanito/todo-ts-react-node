@@ -64,7 +64,7 @@ export const register = async (req: Request, res: Response) => {
     const existingUser = await User.findOne({ username });
 
     if (existingUser) {
-      return res.status(409).json({ error: 'Email in use' });
+      return res.status(409).json({ error: 'Username in use' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);

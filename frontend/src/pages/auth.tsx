@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import './auth.css';
 import { useNavigate } from 'react-router-dom';
+import Snackbar from '@mui/material/Snackbar';
+import MuiAlert, { AlertProps } from '@mui/material/Alert';
 
 interface AuthResponse {
     username?: string;
@@ -12,7 +14,13 @@ const AuthPage: React.FC = () => {
     const [loginFormData, setLoginFormData] = useState({ username: '', password: '' });
     const [registerFormData, setRegisterFormData] = useState({ username: '', password: '' });
     const [snackbarMessage, setSnackbarMessage] = useState('');
+    const [snackbarOpen, setSnackbarOpen] = useState(false);
+
     const navigate = useNavigate();
+
+    const handleSnackbarClose = () => {
+        setSnackbarOpen(false);
+    };
 
     const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -41,9 +49,11 @@ const AuthPage: React.FC = () => {
                 navigate("/")
             } else {
                 setSnackbarMessage(data.error || 'Error in login');
+                setSnackbarOpen(true);
             }
         } catch (error) {
             setSnackbarMessage(error.toString());
+            setSnackbarOpen(true);
         }
     };
 
@@ -63,9 +73,11 @@ const AuthPage: React.FC = () => {
             } else {
                 setSnackbarMessage(data.error || 'Error creating the account');
             }
+            setSnackbarOpen(true);
         } catch (error) {
             console.error('Error creating the account:', error);
             setSnackbarMessage('Error creating the account');
+            setSnackbarOpen(true);
         }
     };
 
@@ -99,9 +111,11 @@ const AuthPage: React.FC = () => {
                     <button type="submit">Create account</button>
                 </form>
             </div>
-            {snackbarMessage && (
-                <div className="snackbar">{snackbarMessage}</div>
-            )}
+            <Snackbar open={snackbarOpen} autoHideDuration={6000} onClose={handleSnackbarClose}>
+                <MuiAlert elevation={6} variant="filled" onClose={handleSnackbarClose} severity="success">
+                    {snackbarMessage}
+                </MuiAlert>
+            </Snackbar>
         </div>
     );
 }
