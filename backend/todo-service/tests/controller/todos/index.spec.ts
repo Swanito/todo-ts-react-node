@@ -1,50 +1,46 @@
-// Mock the Todo model
-const mockedTodos = [{ name: "Todo 1", description: "Description 1", status: false }];
-
-const todoDocument = {
-  find: jest.fn().mockResolvedValue(mockedTodos),
-  findByIdAndUpdate: jest.fn(),
-  findByIdAndDelete: jest.fn(),
-  save: jest.fn(),
-}
-
-jest.mock("../../../src/models/todo", () => {
-  return { ...todoDocument }
-});
-
-import mongoose from "mongoose";
-import { MongoMemoryServer } from "mongodb-memory-server";
-import { getTodos, addTodo, updateTodo, deleteTodo } from "../../../src/controllers/todos";
+import { Request, Response } from 'express';
 import { beforeAll, afterAll, beforeEach, describe, it, expect } from "@jest/globals";
-import { getMockReq, getMockRes } from '@jest-mock/express'
 
-let mongoServer: MongoMemoryServer;
+import { getTodos } from '../../../src/controllers/todos';
+import Todo from '../../../src/models/todo';
 
-// Before all tests, start the MongoDB memory server and connect mongoose
-beforeAll(async () => {
-  mongoServer = await MongoMemoryServer.create();
-  const mongoUri = mongoServer.getUri();
-  await mongoose.connect(mongoUri);
-}, 15000);
+jest.mock('../../../src/models/todo');
 
-// After all tests, stop the MongoDB memory server and close mongoose connection
-afterAll(async () => {
-  await mongoose.disconnect();
-  await mongoServer.stop();
-});
+describe('getTodos function', () => {
+  let req: Partial<Request>;
+  let res: Partial<Response>;
 
-describe("Todo API", () => {
-  afterEach(() => {
-    jest.clearAllMocks();
+  beforeEach(() => {
+    req = {};
+    res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+    };
   });
 
-  it.only("should get all todos", async () => {
-    const req = getMockReq();
-    const { res } = getMockRes()
+  it('should return todos for a valid user', async () => {
+    const userId = 'userId';
+    const todosMock = [
+      { name: 'Todo 1', description: 'Description 1', status: false },
+      { name: 'Todo 2', description: 'Description 2', status: true },
+    ];
 
-    await getTodos(req, res);
+    (Todo.find as jest.Mock).mockResolvedValue(todosMock);
+
+    req.user = userId;
+
+    await getTodos(req as Request, res as Response);
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ todos: mockedTodos });
+    expect(res.json).toHaveBeenCalledWith({ todos: todosMock });
+  });
+
+  it('should handle error when getting todos', async () => {
+    (Todo.find as jest.Mock).mockRejectedValue(new Error('Database error'));
+
+    await getTodos(req as Request, res as Response);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ message: 'Error getting the todos' });
   });
 });

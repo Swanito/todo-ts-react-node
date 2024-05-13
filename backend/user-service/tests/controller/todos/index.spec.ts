@@ -1,50 +1,55 @@
-// Mock the Todo model
-const mockedTodos = [{ name: "Todo 1", description: "Description 1", status: false }];
-
-const todoDocument = {
-  find: jest.fn().mockResolvedValue(mockedTodos),
-  findByIdAndUpdate: jest.fn(),
-  findByIdAndDelete: jest.fn(),
-  save: jest.fn(),
-}
-
-jest.mock("../../../src/models/todo", () => {
-  return { ...todoDocument }
-});
-
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { login } from "../../../src/controllers/account";
+import { Request, Response } from "express";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import User from "../../../src/models/user"; // Asumiendo que este es el modelo de usuario
 import { beforeAll, afterAll, beforeEach, describe, it, expect } from "@jest/globals";
 import { getMockReq, getMockRes } from '@jest-mock/express'
 
 let mongoServer: MongoMemoryServer;
 
-// Before all tests, start the MongoDB memory server and connect mongoose
+process.env = { TOKEN_SECRET_KEY: 'mocked_secret_key' };
+
 beforeAll(async () => {
   mongoServer = await MongoMemoryServer.create();
   const mongoUri = mongoServer.getUri();
   await mongoose.connect(mongoUri);
 }, 15000);
 
-// After all tests, stop the MongoDB memory server and close mongoose connection
 afterAll(async () => {
   await mongoose.disconnect();
   await mongoServer.stop();
 });
 
-describe("Todo API", () => {
-  afterEach(() => {
-    jest.clearAllMocks();
+describe("Account Controller", () => {
+  beforeEach(async () => {
+    await User.deleteMany({});
   });
 
-  it.only("should get all todos", async () => {
-    const req = getMockReq();
-    const { res } = getMockRes()
+  it("should login with valid credentials", async () => {
+    const hashedPassword = await bcrypt.hash("password", 10);
+    await User.create({ username: "testuser", password: hashedPassword });
+
+    const req = getMockReq({ body: { username: "testuser", password: "password" } });
+
+    const { res } = getMockRes();
 
     await login(req, res);
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ todos: mockedTodos });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ username: "testuser", token: expect.any(String) }));
+  });
+
+  it("should fail login with invalid credentials", async () => {
+    const req = getMockReq({ body: { username: "invaliduser", password: "invalidpassword" } });
+
+    const { res } = getMockRes();
+
+    await login(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Invalid credentials' });
   });
 });
